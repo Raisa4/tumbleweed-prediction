@@ -79,6 +79,11 @@ export type Points = {
 };
 
 const BASE = import.meta.env.VITE_API ?? "http://localhost:8000";
+// Static hosting (npm run build:static): read the files written by backend/export_static.py
+// instead of calling the Python API. `live` is the API url, `file` the exported file under /data/
+// (not /api/: Azure Static Web Apps reserves that path for server functions).
+const STATIC = import.meta.env.VITE_STATIC === "1";
+const src = (live: string, file: string) => (STATIC ? `${import.meta.env.BASE_URL}data/${file}` : BASE + live);
 
 let fixtures = false;
 export const usingFixtures = () => fixtures;
@@ -86,7 +91,7 @@ export const usingFixtures = () => fixtures;
 const EMPTY = { type: "FeatureCollection" as const, features: [] };
 
 async function grab<T>(live: string, backup: string | null): Promise<T | null> {
-  const res = await fetch(BASE + live).catch(() => null);
+  const res = await fetch(live).catch(() => null);
   if (res?.ok) return res.json() as Promise<T>;
   if (res?.status === 404) return null;
   fixtures = true;
@@ -96,27 +101,27 @@ async function grab<T>(live: string, backup: string | null): Promise<T | null> {
 }
 
 export const getRegions = () =>
-  grab<Region[]>("/regions", "/fixtures/regions.json").then((r) => r ?? []);
+  grab<Region[]>(src("/regions", "regions.json"), "/fixtures/regions.json").then((r) => r ?? []);
 
 export const getTrend = (region: string, v: string) =>
-  grab<Trend>(`/trend?region=${region}&var=${v}`, `/fixtures/trend/${region}/${v}.json`);
+  grab<Trend>(src(`/trend?region=${region}&var=${v}`, `trend/${region}/${v}.json`), `/fixtures/trend/${region}/${v}.json`);
 
 export const getIndex = (region: string) =>
-  grab<Trend>(`/index?region=${region}`, `/fixtures/index/${region}.json`);
+  grab<Trend>(src(`/index?region=${region}`, `index/${region}.json`), `/fixtures/index/${region}.json`);
 
 export const getBacktest = (region: string) =>
-  grab<BacktestRow[]>(`/backtest?region=${region}`, `/fixtures/backtest/${region}.json`).then(
+  grab<BacktestRow[]>(src(`/backtest?region=${region}`, `backtest/${region}.json`), `/fixtures/backtest/${region}.json`).then(
     (r) => r ?? [],
   );
 
 export const getForecast = (region: string, target: number) =>
-  grab<Forecast>(`/forecast?region=${region}&target=${target}`, null);
+  grab<Forecast>(src(`/forecast?region=${region}&target=${target}`, `forecast/${region}/${target}.json`), null);
 
 export const getSources = (region: string) =>
-  grab<Cells>(`/layers/${region}/sources.geojson`, null).then((r) => r ?? EMPTY);
+  grab<Cells>(src(`/layers/${region}/sources.geojson`, `layers/${region}/sources.geojson`), null).then((r) => r ?? EMPTY);
 
 export const getPileup = (region: string, threshold: number) =>
-  grab<Cells>(`/layers/${region}/pileup.geojson?threshold=${threshold}`, null).then(
+  grab<Cells>(src(`/layers/${region}/pileup.geojson?threshold=${threshold}`, `layers/${region}/pileup/${threshold}.geojson`), null).then(
     (r) => r ?? EMPTY,
   );
 
@@ -127,11 +132,14 @@ export const getHindcast = (
   kind: "predicted" | "actual",
 ) =>
   grab<Cells>(
-    `/layers/${region}/hindcast.geojson?threshold=${threshold}&target=${target}&kind=${kind}`,
+    src(
+      `/layers/${region}/hindcast.geojson?threshold=${threshold}&target=${target}&kind=${kind}`,
+      `layers/${region}/hindcast/${threshold}_${target}_${kind}.geojson`,
+    ),
     null,
   ).then((r) => r ?? EMPTY);
 
 export const getSightings = (region: string, target: number) =>
-  grab<Points>(`/layers/${region}/sightings.geojson?target=${target}`, null).then(
+  grab<Points>(src(`/layers/${region}/sightings.geojson?target=${target}`, `layers/${region}/sightings/${target}.geojson`), null).then(
     (r) => r ?? EMPTY,
   );

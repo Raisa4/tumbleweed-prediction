@@ -6,6 +6,8 @@
     "dev": "vite",
     "dev:live": "VITE_API=http://localhost:8000 vite",
     "build": "tsc --noEmit && vite build",
+    "build:static": "tsc --noEmit && VITE_STATIC=1 vite build",
+    "deploy": "cd ../backend && env -u PYTHONPATH .venv/bin/python export_static.py && cd ../frontend && npm run build:static && env $(grep ^SWA_CLI_DEPLOYMENT_TOKEN= ../.env) npx -y @azure/static-web-apps-cli@2 deploy ./dist --env production",
     "fixtures": "../.venv/bin/python scripts/make_fixtures.py"
   },
   "dependencies": {

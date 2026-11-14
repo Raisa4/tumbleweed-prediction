@@ -3,23 +3,24 @@ import {
   CircleMarker,
   GeoJSON,
   MapContainer,
+  Marker,
   Pane,
   Popup,
   Rectangle,
   TileLayer,
   useMap,
 } from "react-leaflet";
-import type { Map as LeafletMap } from "leaflet";
+import L, { type Map as LeafletMap } from "leaflet";
 import type { BacktestRow, Cells, Points, Region } from "./api";
 import { RISK_CLASSES, SOURCE_CLASSES, fmt, riskColour, sourceColour } from "./vars";
 
 export type Basemap = "streets" | "satellite";
 
-const TILES = {
+const TILES: Record<Basemap, { base: string; labels: string | null; credit: string }> = {
+  // Esri World Street Map: coloured (parks, water, roads), free, no API key. Labels are already in the tiles.
   streets: {
-    base: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-    labels:
-      "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+    base: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    labels: null,
     credit: "Basemap &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors",
   },
   satellite: {
@@ -49,9 +50,12 @@ export function Tiles({ basemap }: { basemap: Basemap }) {
   return (
     <>
       <TileLayer key={basemap} url={t.base} attribution={t.credit} maxNativeZoom={16} />
-      <Pane name="labels" style={{ zIndex: 450, pointerEvents: "none" }}>
-        <TileLayer key={basemap + "-labels"} url={t.labels} maxNativeZoom={16} />
-      </Pane>
+      {/* Separate label layer on top of our data, only for basemaps whose tiles have no labels. */}
+      {t.labels && (
+        <Pane name="labels" style={{ zIndex: 450, pointerEvents: "none" }}>
+          <TileLayer key={basemap + "-labels"} url={t.labels} maxNativeZoom={16} />
+        </Pane>
+      )}
     </>
   );
 }
@@ -110,10 +114,9 @@ export function PileupLayer({ data }: { data: Cells }) {
   return (
     <GeoJSON
       data={data}
-      style={(f) => {
-        const r = f?.properties.risk ?? 0;
-        return { fillColor: riskColour(r), fillOpacity: r < 0.1 ? 0.45 : 0.8, stroke: false };
-      }}
+      // Draw only real risk (from the first colour class up); the faint cells covered the whole map.
+      filter={(f) => f.properties.risk >= RISK_CLASSES[0].min}
+      style={(f) => ({ fillColor: riskColour(f?.properties.risk ?? 0), fillOpacity: 0.8, stroke: false })}
       onEachFeature={(f, l) =>
         l.bindTooltip(`<b>Pile-up risk ${fmt(f.properties.risk, 2)}</b> on a 0–1 scale`, {
           sticky: true,
@@ -123,17 +126,21 @@ export function PileupLayer({ data }: { data: Cells }) {
   );
 }
 
+// A real, news-reported pile-up: dark dot with a pulsing ring (animation in styles.css).
+const NEWS_ICON = L.divIcon({
+  className: "news",
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+  popupAnchor: [0, -10],
+  html: '<span class="ring"></span><span class="core">!</span>',
+});
+
 export function EventMarkers({ events }: { events: BacktestRow[] }) {
   return (
     <>
       {events.map((e) =>
         e.lat == null || e.lon == null ? null : (
-          <CircleMarker
-            key={e.date + e.place}
-            center={[e.lat, e.lon]}
-            radius={8}
-            pathOptions={{ color: "#fff", weight: 2.5, fillColor: "#1B0C03", fillOpacity: 1 }}
-          >
+          <Marker key={e.date + e.place} position={[e.lat, e.lon]} icon={NEWS_ICON} zIndexOffset={1000}>
             <Popup>
               <strong>{e.place}</strong>
               <br />
@@ -149,7 +156,7 @@ export function EventMarkers({ events }: { events: BacktestRow[] }) {
                 </>
               )}
             </Popup>
-          </CircleMarker>
+          </Marker>
         ),
       )}
     </>

@@ -195,6 +195,8 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .wind input { width: 100%; accent-color: var(--rust); margin: 8px 0 0; }
 .ticks { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); padding: 0 4px; }
 .stat-line { font-size: 15px; background: #F6EEDF; padding: 8px 10px; border-radius: 6px; }
+/* Smaller version of the beige box for side notes. */
+.stat-line.small { font-size: 13px; color: var(--dim); }
 
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--paper); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
 .seg button { border: 0; background: transparent; padding: 6px 14px; font-size: 14px; font-weight: 600; color: var(--text); }
@@ -286,3 +288,18 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .demo-bar { flex-wrap: wrap; }
 }
 
+
+/* News pile-up marker: dark core with "!" and a ring that pulses outwards. */
+.news { position: relative; }
+/* Flex centring keeps the "!" in the middle of the dot at any size. */
+.news .core { position: absolute; inset: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #1B0C03; border: 2.5px solid #fff; color: #fff; font: 700 12px/1 system-ui, sans-serif; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); }
+.news .ring { position: absolute; inset: 0; border-radius: 50%; background: #C0392B; animation: pulse 1.8s ease-out infinite; }
+@keyframes pulse { from { transform: scale(1); opacity: 0.7; } to { transform: scale(2.8); opacity: 0; } }
+/* Legend copy: same 16px as the colour squares, still dot, no pulse. */
+.news-key { display: inline-block; width: 16px; height: 16px; flex: none; }
+.news-key .core { font-size: 10px; border-width: 1.5px; box-shadow: 0 0 0 1px #1B0C03; }
+/* No bottom gap when another key list follows directly. */
+.legend.tight { margin-bottom: 0; }
+/* ...and no top gap on the list that follows, so rows keep the same spacing. */
+.keys.after { margin-top: 0; }
+.region-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 4px 0 22px; font-weight: 700; }

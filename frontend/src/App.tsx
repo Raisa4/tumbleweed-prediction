@@ -127,9 +127,18 @@ export default function App() {
                 ← Back to the map
               </button>
               <h1 className="question">{page.question}</h1>
-              <p className="lede">
-                {page.lede} Region: <strong>{region.name}</strong>.
-              </p>
+              <p className="lede">{page.lede}</p>
+              {/* Region switch right on the page (same look as the season buttons), not only in the header. */}
+              <div className="region-pick">
+                <span>Region:</span>
+                <div className="seg big" role="group" aria-label="Region">
+                  {regions.map((r) => (
+                    <button key={r.id} aria-pressed={r.id === regionId} onClick={() => setRegionId(r.id)}>
+                      {r.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {usingFixtures() && (
                 <div className="warn">
                   Can't reach the backend, so you are seeing placeholder numbers, not NASA

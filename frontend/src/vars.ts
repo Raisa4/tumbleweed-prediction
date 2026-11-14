@@ -98,8 +98,6 @@ export type RoleId = (typeof ROLES)[number]["id"];
 export const THRESHOLDS = [4, 6, 8, 10, 12];
 
 export const RISK_CLASSES = [
-  { min: 0.05, colour: "#F0A050" },
-  { min: 0.1, colour: "#E27A2B" },
   { min: 0.2, colour: "#C85614" },
   { min: 0.4, colour: "#94380A" },
   { min: 0.7, colour: "#561D03" },

@@ -1,0 +1,6 @@
+{
+  "mimeTypes": {
+    ".geojson": "application/geo+json",
+    ".json": "application/json"
+  }
+}

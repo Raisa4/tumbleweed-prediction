@@ -21,7 +21,7 @@ import {
 } from "./api";
 import { BaseMap, PileupLayer, RiskScale, SightingDots } from "./MapBits";
 import { WindSlider, load } from "./MapView";
-import { METHODS, fmt, meta, seasonLabel } from "./vars";
+import { METHODS, RISK_CLASSES, fmt, meta, seasonLabel } from "./vars";
 
 const TARGETS = [2023, 2024];
 
@@ -58,6 +58,8 @@ function Chart({ f, row }: { f: F; row: Prediction }) {
         x2={f.target + 0.4}
         y1={row.pi_low}
         y2={row.pi_high}
+        // Grow the y-axis to fit the whole band; by default Recharts hides a band that goes past the axis.
+        ifOverflow="extendDomain"
         fill="#E27A2B"
         fillOpacity={0.3}
         stroke="#C85614"
@@ -116,6 +118,10 @@ function HindcastMap({
           <div className="map-empty">
             No wind reached {threshold} m/s this season, so nothing tumbles at this setting.
           </div>
+        )}
+        {/* Cells exist but all are below the lowest colour class, which PileupLayer hides. */}
+        {cells && cells.features.length > 0 && cells.features.every((f) => f.properties.risk < RISK_CLASSES[0].min) && (
+          <div className="map-empty">Only low pile-up risk this season at {threshold} m/s.</div>
         )}
       </div>
     </figure>

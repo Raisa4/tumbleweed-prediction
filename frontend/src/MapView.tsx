@@ -25,6 +25,9 @@ import type { Tab } from "./App";
 import { SOURCE_CLASSES, THRESHOLDS, fmt, riskColour } from "./vars";
 
 const DETAIL_ZOOM = 8;
+// Space for the floating "Regions" panel, so a region is never hidden under it.
+const PAD: L.FitBoundsOptions =
+  window.innerWidth > 900 ? { paddingTopLeft: [290, 20], paddingBottomRight: [20, 20] } : {};
 
 export function load<T>(set: (v: T | null) => void, fetch: () => Promise<T>) {
   let alive = true;
@@ -42,7 +45,8 @@ const loadAll = <T,>(regions: Region[], fetch: (id: string) => Promise<T>) =>
 
 type Hotspot = { lat: number; lon: number; risk: number };
 
-function hotspots(cells: Cells, n = 6): Hotspot[] {
+// Strongest separated cells (>= ~2 km apart) become tumbleweed icons, like fires on Watch Duty.
+function hotspots(cells: Cells, n = 12): Hotspot[] {
   const all = cells.features
     .filter((f) => f.properties.risk >= 0.2)
     .map((f) => {
@@ -56,19 +60,20 @@ function hotspots(cells: Cells, n = 6): Hotspot[] {
     .sort((a, b) => b.risk - a.risk);
   const kept: Hotspot[] = [];
   for (const h of all) {
-    if (kept.every((k) => Math.hypot(k.lat - h.lat, k.lon - h.lon) > 0.025)) kept.push(h);
+    if (kept.every((k) => Math.hypot(k.lat - h.lat, k.lon - h.lon) > 0.02)) kept.push(h);
     if (kept.length === n) break;
   }
   return kept;
 }
 
-const pin = (colour: string, label = "") =>
+// Plain teardrop pin with a white dot; `size` scales it (bigger = higher risk).
+const pin = (colour: string, label = "", size = 1) =>
   L.divIcon({
     className: "pin",
-    iconSize: [30, 40],
-    iconAnchor: [15, 40],
-    popupAnchor: [0, -36],
-    html: `<svg viewBox="0 0 30 40" width="30" height="40"><path d="M15 39C15 39 2 23 2 14.5a13 13 0 0 1 26 0C28 23 15 39 15 39z" fill="${colour}" stroke="#fff" stroke-width="2"/><circle cx="15" cy="14.5" r="7.5" fill="#fff"/><g fill="none" stroke="${colour}" stroke-width="1.4"><ellipse cx="15" cy="14.5" rx="5.5" ry="2.6"/><ellipse cx="15" cy="14.5" rx="5.5" ry="2.6" transform="rotate(60 15 14.5)"/><ellipse cx="15" cy="14.5" rx="5.5" ry="2.6" transform="rotate(120 15 14.5)"/></g></svg>${label && `<span>${label}</span>`}`,
+    iconSize: [30 * size, 40 * size],
+    iconAnchor: [15 * size, 40 * size],
+    popupAnchor: [0, -36 * size],
+    html: `<svg viewBox="0 0 30 40" width="${30 * size}" height="${40 * size}"><path d="M15 39C15 39 2 23 2 14.5a13 13 0 0 1 26 0C28 23 15 39 15 39z" fill="${colour}" stroke="#fff" stroke-width="2"/><circle cx="15" cy="14.5" r="5" fill="#fff"/></svg>${label && `<span>${label}</span>`}`,
   });
 
 function Zoom({ onZoom }: { onZoom: (z: number) => void }) {
@@ -80,7 +85,7 @@ export function WindSlider({ value, onChange }: { value: number; onChange: (t: n
   return (
     <div className="wind">
       <label htmlFor="wind">
-        Wind strong enough to roll a plant: <strong>{value} m/s</strong> ({Math.round(value * 3.6)}{" "}
+        <strong>Wind strong enough to roll a plant:</strong> <strong>{value} m/s</strong> ({Math.round(value * 3.6)}{" "}
         km/h)
       </label>
       <input
@@ -97,9 +102,8 @@ export function WindSlider({ value, onChange }: { value: number; onChange: (t: n
           <span key={t}>{t}</span>
         ))}
       </div>
-      <p className="note">
-        Our assumption, so you can change it. It applies to NASA MERRA-2 hourly average wind over a
-        ~50 km area, not to gusts at the ground, which are stronger.
+      <p className="stat-line small">
+        Our assumption. Applies to NASA MERRA-2 hourly mean wind (~50 km), not ground gusts.
       </p>
     </div>
   );
@@ -136,7 +140,8 @@ export default function MapView({
   const [sources, setSources] = useState<Record<string, Cells> | null>(null);
   const [pileup, setPileup] = useState<Record<string, Cells> | null>(null);
   const [events, setEvents] = useState<BacktestRow[]>([]);
-  const [showSources, setShowSources] = useState(true);
+  // Off at start: open land covers most of each region and hid the map; farmers can switch it on.
+  const [showSources, setShowSources] = useState(false);
   const [showPileup, setShowPileup] = useState(true);
   const [threshold, setThreshold] = useState(8);
   const [basemap, setBasemap] = useState<Basemap>("streets");
@@ -155,7 +160,7 @@ export default function MapView({
     [regions],
   );
   useEffect(() => {
-    map?.fitBounds(all);
+    map?.fitBounds(all, PAD);
   }, [map, all]);
 
   const spots = useMemo(
@@ -164,7 +169,11 @@ export default function MapView({
   );
 
   const region = regions.find((r) => r.id === regionId);
-  const fly = (r: Region) => map?.flyToBounds(bounds(r.bbox), { duration: 1.2 });
+  // stop() cancels a flight still in progress, so a quick second click always wins.
+  const fly = (r: Region) => {
+    map?.stop();
+    map?.flyToBounds(bounds(r.bbox), { ...PAD, duration: 1.2 });
+  };
   const first = useRef(true);
   useEffect(() => {
     if (!map || !region) return;
@@ -205,7 +214,7 @@ export default function MapView({
           showPileup &&
           regions.flatMap((r) =>
             (spots[r.id] ?? []).map((h, i) => (
-              <Marker key={`${r.id}${i}${threshold}`} position={[h.lat, h.lon]} icon={pin(riskColour(h.risk))}>
+              <Marker key={`${r.id}${i}${threshold}`} position={[h.lat, h.lon]} icon={pin(riskColour(h.risk), "", 0.75 + 0.5 * h.risk)}>
                 <Tooltip direction="top" offset={[0, -36]}>
                   Pile-up hotspot · risk {fmt(h.risk, 2)}
                 </Tooltip>
@@ -245,7 +254,10 @@ export default function MapView({
             {r.name}
           </button>
         ))}
-        <button className="all" onClick={() => map?.flyToBounds(all, { duration: 1.2 })}>
+        <button className="all" onClick={() => {
+            map?.stop();
+            map?.flyToBounds(all, { ...PAD, duration: 1.2 });
+          }}>
           Show all regions
         </button>
         <div className="zoom">
@@ -269,16 +281,6 @@ export default function MapView({
         )}
 
         <section>
-          <WindSlider value={threshold} onChange={setThreshold} />
-          {hours != null && region && (
-            <p className="stat-line">
-              {region.name}: <strong>{hours.toLocaleString("en-US")} hours</strong> of wind ≥{" "}
-              {threshold} m/s in the winters 2001–2025.
-            </p>
-          )}
-        </section>
-
-        <section>
           <div className="side-head">
             <h3>Layers</h3>
             <BasemapSwitch value={basemap} onChange={setBasemap} />
@@ -290,28 +292,43 @@ export default function MapView({
           <div className={showPileup ? "legend" : "legend off"}>
             <RiskScale />
             <p className="key-row">
-              <span className="mini-pin" /> Top hotspots: highest pile-up risk
+              <span className="mini-pin" /> Top hotspots (bigger = higher risk)
             </p>
           </div>
           <label className="layer-head">
             <input type="checkbox" checked={showSources} onChange={(e) => setShowSources(e.target.checked)} />
             Where tumbleweeds grow
           </label>
-          <ul className={showSources ? "keys legend" : "keys legend off"}>
+          <ul className={showSources ? "keys legend tight" : "keys legend tight off"}>
             {SOURCE_CLASSES.map((c) => (
               <li key={c.label}>
                 <i style={{ background: c.colour }} /> {c.label}
               </li>
             ))}
           </ul>
-          <p className="key-row">
-            <i className="dot" /> Real pile-up from the news{located.length ? "" : " (coming soon)"}
-          </p>
-          <p className="note">
+          <ul className="keys legend after">
+            <li>
+              <span className="news news-key">
+                <span className="core">!</span>
+              </span>
+              Real pile-up from the news{located.length ? "" : " (coming soon)"}
+            </li>
+          </ul>
+          <p className="stat-line small">
             250 m squares. Plants are pushed downwind up to 4 km with real NASA wind directions and
             stop against buildings and fences. Satellites cannot see single tumbleweeds: this shows
             habitat and wind, not plants.
           </p>
+        </section>
+
+        <section>
+          <WindSlider value={threshold} onChange={setThreshold} />
+          {hours != null && region && (
+            <p className="stat-line">
+              {region.name}: <strong>{hours.toLocaleString("en-US")} hours</strong> of wind ≥{" "}
+              {threshold} m/s in the winters 2001–2025.
+            </p>
+          )}
         </section>
 
         <section>
