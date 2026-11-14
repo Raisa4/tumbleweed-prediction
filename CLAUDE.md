@@ -123,7 +123,7 @@ year,variable,value
 | `spring_precip` | total precipitation Mar–May | GPM IMERG | mm |
 | `peak_ndvi_anom` | peak growing-season NDVI anomaly vs 2001–2025 mean, grass/shrub/barren pixels | MODIS MOD13Q1 | NDVI |
 | `autumn_soilm` | mean topsoil moisture Sep–Nov (lower = drier = worse) | GLDAS Noah | kg/m² |
-| `windy_days` | days Nov(prev yr)–Apr with daily max 10 m wind ≥ 12 m/s | MERRA-2 | days |
+| `windy_days` | days Nov(prev yr)–Apr with daily max 10 m wind ≥ 8 m/s (12 m/s gave mostly 0s on the ~50 km grid) | MERRA-2 via NASA POWER | days |
 | `barren_frac` | fraction of region barren / open shrub / grassland | MODIS MCD12Q1 | 0–1 |
 
 ### `data/{region}/wind.csv` — hourly, Nov–Apr seasons
