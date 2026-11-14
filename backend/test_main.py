@@ -13,10 +13,10 @@ def test_regions_lists_the_three_contract_regions():
 
 
 def test_pileup_serves_valid_thresholds_and_rejects_others():
-    # 12 m/s exists -> a GeoJSON map; 11 m/s doesn't -> error 422.
-    ok = client.get("/layers/victorville/pileup.geojson", params={"threshold": 12})
+    # 8 m/s exists -> a GeoJSON map; 16 m/s (old slider value, removed) -> error 422.
+    ok = client.get("/layers/victorville/pileup.geojson", params={"threshold": 8})
     assert ok.status_code == 200 and ok.json()["type"] == "FeatureCollection"
-    assert client.get("/layers/victorville/pileup.geojson", params={"threshold": 11}).status_code == 422
+    assert client.get("/layers/victorville/pileup.geojson", params={"threshold": 16}).status_code == 422
 
 
 def test_unknown_region_is_404():
@@ -47,7 +47,7 @@ def test_forecast_serves_targets_only():
 
 
 def test_hindcast_layers_serve_valid_requests_only():
-    url, ok = "/layers/victorville/hindcast.geojson", {"threshold": 12, "target": 2023, "kind": "predicted"}
+    url, ok = "/layers/victorville/hindcast.geojson", {"threshold": 8, "target": 2023, "kind": "predicted"}
     assert client.get(url, params=ok).json()["type"] == "FeatureCollection"
     # Wrong kind or wrong target season -> error 422.
     assert client.get(url, params={**ok, "kind": "guess"}).status_code == 422

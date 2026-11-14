@@ -55,7 +55,7 @@ Season Y = plants grow and dry in year Y, tumble Nov Y–Apr Y+1. It joins `spri
 
 - Satellites can't see individual tumbleweeds (0.5–2 m plants vs 250–500 m pixels). We model **conditions and habitat**, not plants.
 - MERRA-2 wind is ~50 km resolution: regional wind seasons, not street-level paths.
-- The tumbling wind threshold is an **assumption**, exposed as a slider.
+- The tumbling wind threshold is an **assumption**, exposed as a slider. It applies to MERRA-2 hourly mean wind over a ~50 km cell, not to gusts at the ground; say so next to the slider.
 - Validation = backtest against ~10 news-reported pile-ups: a plausibility check, not an accuracy score.
 - Hindcast: 12 validation + 2 test seasons is a demonstration, not an accuracy score. Single-year rain and wind are mostly unpredictable; say so when the real value falls outside the interval.
 - **Do NOT claim:** a fire probability %, insurer use cases, that we detect tumbleweeds from space.
@@ -93,7 +93,7 @@ Use `earthaccess`; subset to bbox before loading; one function per variable, one
 **Build:** `geo/build.py`, per region:
 - Sources: GBIF occurrence API in bbox — query ALL names: Salsola tragus, Salsola kali, Salsola kali subsp. tragus, Kali tragus, Salsola iberica, Bassia scoparia, Kochia scoparia (paginate) — plus iNaturalist research-grade and needs-ID observations (genus Salsola + Bassia scoparia, open coordinates only, deduplicated against GBIF), plus OSM landuse farmland/brownfield/greenfield/construction/meadow and natural scrub/grassland/heath (osmnx). 250 m grid; weight = normalized sighting density + suitable-land flag → `sources.geojson`.
 - Barriers: OSM buildings + barrier=fence/wall on the same grid.
-- Pile-ups for thresholds t = 8,10,12,14,16 m/s: hours with speed ≥ t → 8-bin direction histogram; per bin push source weight downwind with numpy array shifts up to 4 km, accumulating where it hits barrier cells; sum bins by frequency; normalize to `risk` 0–1; export cells with risk > 0.05 → `pileup_{t}.geojson`.
+- Pile-ups for thresholds t = 4,6,8,10,12 m/s (lowered from 8–16: MERRA-2 averages out gusts, ≥14 m/s gave ~0 h per season): hours with speed ≥ t → 8-bin direction histogram; per bin push source weight downwind with numpy array shifts up to 4 km, accumulating where it hits barrier cells; sum bins by frequency; normalize to `risk` 0–1; export cells with risk > 0.05 → `pileup_{t}.geojson`.
 - Fill `data/{region}/events.csv` (geocode): Victorville CA Apr 2018; West Jordan UT Apr 2018; Eagle Mountain UT Apr 2018; South Jordan UT 2021; South Jordan UT Mar 2024; Eagle Mountain UT Mar 2024; Hwy 240 West Richland WA 2019-12-31. Use real source URLs.
 **Done when:** 3 regions × (1 sources + 5 pile-up) GeoJSON committed, hotspots sit on built-up edges downwind of open land, events file filled.
 
@@ -102,7 +102,7 @@ Use `earthaccess`; subset to bbox before loading; one function per variable, one
 **Build:** React + Vite + TS, react-leaflet, recharts, backend at http://localhost:8000 (fixtures work from minute one).
 - Onboarding: "Who are you?" (city/fire, farmer, student) + "Where?" → main view. Role sets default focus: city/fire → map, farmer → sources, student → trends.
 - Left: Tumbleweed Conditions Index card on top, then variable cards with one-sentence plain definitions; click → line chart + Sen's slope line + badge (significant ↑/↓ or not significant) + verdict text.
-- Right: map with sources + pile-up layers, wind-threshold slider (8–16, step 2) swapping pile-up files, event markers with popups.
+- Right: map with sources + pile-up layers, wind-threshold slider (4–12, step 2; default 8) swapping pile-up files, event markers with popups.
 - Guided demo: "Why did South Jordan get buried in 2024?" → index trend → event marker → pile-up layer.
 - Few small components, no state library, no UI kit.
 **Midway:** check Space Apps submission requirements; draft slides + video.
@@ -157,7 +157,7 @@ date,place,lat,lon,source_url
 ```
 
 ### Geo outputs
-`geo/output/{region}/sources.geojson` (property `weight` 0–1), `geo/output/{region}/pileup_{t}.geojson` (property `risk` 0–1), t ∈ {8,10,12,14,16}.
+`geo/output/{region}/sources.geojson` (property `weight` 0–1), `geo/output/{region}/pileup_{t}.geojson` (property `risk` 0–1), t ∈ {4,6,8,10,12}.
 Hindcast: `geo/output/{region}/hindcast/pileup_{t}_{T}_{predicted|actual}.geojson` (properties `risk` 0–1, `hours`) and `geo/output/{region}/sightings_{T}.geojson` (points: `id`, `source`, `quality`, `taxon`), T ∈ {2023, 2024}. Built by `python geo/hindcast.py` (written by B for C): predicted = mean hours per direction over the seasons before T, actual = season T's hours; both maps share one 0–1 scale so equal colour = equal risk. `hours` = hours ≥ t in the season (mean per season for predicted). Sightings of season T = records with `year == T`.
 
 ### `data/{region}/forecast_{T}.json` — frozen hindcast, written by B (draft)

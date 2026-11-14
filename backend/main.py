@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parent.parent
 # data/ = A's yearly numbers, C's events, our frozen forecasts. geo/output/ = C's map layers.
 DATA, GEO = ROOT / "data", ROOT / "geo" / "output"
 # Wind thresholds (m/s) for which a pile-up layer exists (the slider on the website).
-THRESHOLDS = {8, 10, 12, 14, 16}
+# Low on purpose: MERRA-2 is a ~50 km average, so it rarely reaches 14–16 m/s even when gusts do.
+THRESHOLDS = {4, 6, 8, 10, 12}
 
 app = FastAPI(title="Tumbleweed Trend Detective")
 # The Vite dev server (frontend) runs on port 5173; without CORS the browser would block its requests to us.

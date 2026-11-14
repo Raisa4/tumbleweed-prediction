@@ -26,7 +26,12 @@ def season_of(time):
 def direction_hours(wind, t):
     # Table: rows = seasons, 8 columns = direction the wind blows TOWARD (0 = N, 1 = NE, 2 = E, ...),
     # values = number of hours with speed >= t m/s.
-    season = season_of(pd.to_datetime(wind.time))
+    time = pd.to_datetime(wind.time)
+    season = season_of(time)
+    # Keep only complete seasons (all 6 months Nov–Apr present). The real wind.csv starts on 2001-01-01,
+    # so season 2000 has only Jan–Apr and would make the "average season" look calmer than it is.
+    complete = time.dt.month.groupby(season).transform("nunique") == 6
+    season, wind = season[complete], wind[complete]
     fast = wind.speed_ms >= t
     # 45° bins: round(dir / 45) gives 0..8, and % 8 folds 360° back onto north.
     bins = np.round(wind.dir_deg[fast] / 45).astype(int) % 8
