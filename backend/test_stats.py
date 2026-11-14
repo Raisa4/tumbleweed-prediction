@@ -29,6 +29,13 @@ def test_drier_soil_raises_the_index():
     assert conditions_index(wide).tolist() == [-1, 0, 1]
 
 
+def test_index_works_with_a_variable_missing():
+    # peak_ndvi_anom not delivered yet: the index averages the 4 others (soil still flipped).
+    wide = pd.DataFrame({"spring_precip": [1, 2, 3], "autumn_soilm": [3, 2, 1], "windy_days": [1, 2, 3],
+                         "barren_frac": [1, 2, 3]})
+    assert conditions_index(wide).tolist() == [-1, 0, 1]
+
+
 def test_windy_days_and_events_map_to_growth_season():
     # windy_days labelled 2024 (winter Nov 2023–Apr 2024) belongs to season 2023, with the other 2023 variables.
     annual = pd.DataFrame({"year": [2023, 2023, 2023, 2023, 2024],

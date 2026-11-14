@@ -42,17 +42,20 @@ def seasons(annual):
     # windy_days labelled Y+1 covers the winter Nov Y–Apr Y+1, which blows the plants grown in Y,
     # so we subtract 1 from its year to put it in season Y.
     shifted = annual.assign(year=annual.year - annual.variable.eq("windy_days"))
-    # pivot: rows = seasons, columns = variables. [SIGN.index] fixes the column order (and fails if one is missing).
-    # dropna keeps only seasons that have all five variables (drops 2000 and 2025 until A adds windy_days 2026).
-    return shifted.pivot(index="year", columns="variable", values="value")[SIGN.index].dropna()
+    # pivot: rows = seasons, columns = variables.
+    wide = shifted.pivot(index="year", columns="variable", values="value")
+    # Keep the known variables that are present, in SIGN's order. A variable that hasn't arrived yet
+    # (peak_ndvi_anom is still in the AppEEARS queue) is simply left out and joins automatically later.
+    # dropna keeps only seasons that have all the present variables (drops 2000 and 2025 until A adds windy_days 2026).
+    return wide[[v for v in SIGN.index if v in wide.columns]].dropna()
 
 
 def conditions_index(wide):
     # Tumbleweed Conditions Index: one number per season, 0 = a normal season, positive = worse than normal.
     # z-score = (value - mean) / standard deviation, so rain in mm and wind in days end up on the same scale.
     z = (wide - wide.mean()) / wide.std()
-    # Flip autumn_soilm (SIGN = -1), then average the five variables.
-    return (z * SIGN).mean(axis=1)
+    # Flip autumn_soilm (SIGN = -1), then average the variables that are present.
+    return (z * SIGN[wide.columns]).mean(axis=1)
 
 
 def season_of(dates):

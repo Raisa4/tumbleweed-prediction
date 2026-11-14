@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from forecast import SERIES, hindcast, predict, sen_forecast, validate
+from forecast import hindcast, predict, sen_forecast, series_of, validate
 from stats import SIGN
 
 SEASONS = np.arange(2001, 2025)
@@ -20,7 +20,7 @@ def test_target_season_data_does_not_change_its_prediction():
     # No leakage: making season 2023 wildly different (+100) must not change the forecast FOR 2023.
     wide, changed = fake_wide(), fake_wide()
     changed.loc[2023] += 100
-    models = dict.fromkeys(SERIES, "sen")
+    models = dict.fromkeys(series_of(wide), "sen")
     assert predict(wide, 2023, models).predicted.equals(predict(changed, 2023, models).predicted)
 
 
@@ -29,6 +29,20 @@ def test_sen_forecast_extends_a_perfect_line():
     x = np.arange(2001, 2011)
     pred, low, high = sen_forecast(pd.DataFrame({"a": 2.0 * x}, index=x), 2011)
     assert np.isclose(pred["a"], 4022) and np.isclose(low["a"], high["a"])
+
+
+def test_missing_variable_is_left_out_of_the_index():
+    # Without peak_ndvi_anom (still in the AppEEARS queue) the forecast covers the 4 other variables + index.
+    wide = fake_wide().drop(columns="peak_ndvi_anom")
+    assert predict(wide, 2023, dict.fromkeys(series_of(wide), "mean"))["var"].tolist() == [*wide.columns, "index"]
+
+
+def test_intervals_never_go_below_zero_for_rain():
+    # Very noisy rain around a small mean: the plain interval would dip below 0 mm; it must be clipped at 0.
+    wide = fake_wide()
+    wide["spring_precip"] = np.random.default_rng(1).gamma(1, 20, len(wide))
+    out = predict(wide, 2023, dict.fromkeys(series_of(wide), "mean")).set_index("var")
+    assert out.loc["spring_precip", "pi_low"] == 0
 
 
 def test_validation_picks_the_trend_for_a_trending_series():

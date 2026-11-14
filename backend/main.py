@@ -89,6 +89,9 @@ def trend(region: str, var: str):
         raise HTTPException(422, f"var must be one of {list(SIGN.index)}")
     # Keep only this variable's rows, oldest year first.
     series = annual(region).query("variable == @var").sort_values("year")
+    # A known variable that A hasn't delivered yet (e.g. peak_ndvi_anom) -> clear 404 instead of a crash.
+    if series.empty:
+        raise HTTPException(404, f"{var} is not available yet for {region}")
     return {"region": region, "var": var, **analyze(series.year, series.value, UNITS[var])}
 
 

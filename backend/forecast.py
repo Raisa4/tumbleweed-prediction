@@ -22,10 +22,11 @@ DATA = ROOT / "data"
 FIRST_TRAIN = 10
 # Held-out test seasons: never used to choose a model, only shown at the end.
 TARGETS = [2023, 2024]
-# The 6 series we forecast: the 5 variables + the combined index.
-SERIES = [*SIGN.index, "index"]
 # TabPFN version pinned so reruns use the same model.
 TABPFN_MODEL = "v3.5_default"
+# Variables that can never be below zero (rain, soil water, day counts, land fractions).
+# peak_ndvi_anom and the index are anomalies, so they CAN be negative and are not clipped.
+NON_NEGATIVE = ["spring_precip", "autumn_soilm", "windy_days", "barren_frac"]
 
 
 # ---------- the three forecasters ----------
@@ -54,7 +55,7 @@ def sen_forecast(train, target):
 
 
 def tabpfn_forecast(train, target):
-    # TabPFN (pre-trained model for small tables, via Prior Labs' API) on all 6 series in ONE call.
+    # TabPFN (pre-trained model for small tables, via Prior Labs' API) on all series in ONE call.
     # Each training row = (series name, season, last season's value) -> this season's value.
     # z-score every series with its training mean/std so rain (mm) and wind (days) share one scale.
     mean, std = train.mean(), train.std()
@@ -83,28 +84,37 @@ def with_index(wide, train_end):
     # Adds the conditions index as a 6th column, z-scored with the TRAINING seasons' mean/std only,
     # so the season we predict can't sneak into its own forecast (no leakage).
     train = wide.loc[:train_end]
-    return wide.assign(index=((wide - train.mean()) / train.std() * SIGN).mean(axis=1))
+    return wide.assign(index=((wide - train.mean()) / train.std() * SIGN[wide.columns]).mean(axis=1))
+
+
+def series_of(wide):
+    # The series we forecast: every variable present in annual.csv + the combined index
+    # (4 + 1 while peak_ndvi_anom is still missing, 5 + 1 once it arrives).
+    return [*wide.columns, "index"]
 
 
 def predict(wide, target, models):
     # One-step forecast of each series for `target`, using only the seasons before it.
     # models maps series -> model name, e.g. {"windy_days": "sen", "spring_precip": "mean", ...}.
-    s = with_index(wide, target - 1)
-    train = s.loc[:target - 1, SERIES]
+    s, series = with_index(wide, target - 1), series_of(wide)
+    train = s.loc[:target - 1, series]
     # Run each model that is needed once (TabPFN = one API call for all series).
     runs = {m: MODELS[m](train, target) for m in set(models.values())}
     # pick(k): for every series, take result k (0 = prediction, 1 = low, 2 = high) from that series' model.
-    pick = lambda k: [runs[models[n]][k][n] for n in SERIES]
-    out = pd.DataFrame({"var": SERIES, "model": [models[n] for n in SERIES], "predicted": pick(0),
-                        "pi_low": pick(1), "pi_high": pick(2), "actual": s.loc[target, SERIES].to_numpy()})
+    pick = lambda k: [runs[models[n]][k][n] for n in series]
+    out = pd.DataFrame({"var": series, "model": [models[n] for n in series], "predicted": pick(0),
+                        "pi_low": pick(1), "pi_high": pick(2), "actual": s.loc[target, series].to_numpy()})
     # inside = did the real value fall in the 95% interval? error = how far the prediction was off.
+    # A symmetric interval can dip below zero (e.g. -16 mm of rain), which is impossible: clip it at 0.
+    clip = out["var"].isin(NON_NEGATIVE)
+    out.loc[clip, ["predicted", "pi_low"]] = out.loc[clip, ["predicted", "pi_low"]].clip(lower=0)
     return out.assign(inside=out.actual.between(out.pi_low, out.pi_high), error=(out.predicted - out.actual).abs())
 
 
 def validate(wide, models):
     # Every model on every validation season (2011–2022): one row per (season, model, series).
     years = range(wide.index[0] + FIRST_TRAIN, TARGETS[0])
-    return pd.concat([predict(wide, t, dict.fromkeys(SERIES, m)).assign(season=t) for t in years for m in models])
+    return pd.concat([predict(wide, t, dict.fromkeys(series_of(wide), m)).assign(season=t) for t in years for m in models])
 
 
 def hindcast(wide, target, val):
@@ -118,7 +128,7 @@ def hindcast(wide, target, val):
     # The real forecast for the target season, with the chosen models.
     final = predict(wide, target, chosen.to_dict())
     # The plain average as a reference point next to every prediction.
-    baseline = predict(wide, target, dict.fromkeys(SERIES, "mean")).set_index("var")
+    baseline = predict(wide, target, dict.fromkeys(series_of(wide), "mean")).set_index("var")
     final = final.assign(baseline=final["var"].map(baseline.predicted), baseline_error=final["var"].map(baseline.error))
     train = with_index(wide, target - 1).loc[:target - 1]
     idx = final.set_index("var").loc["index"]
@@ -136,7 +146,7 @@ def hindcast(wide, target, val):
             "index": {**next(r for r in rows if r["var"] == "index"), "predicted_rank": rank(idx.predicted),
                       "actual_rank": rank(idx.actual), "of_years": len(train) + 1},
             # Training seasons, so the frontend can draw the chart without another request.
-            "history": {"years": train.index.tolist(), **{n: train[n].round(4).tolist() for n in SERIES}}}
+            "history": {"years": train.index.tolist(), **{n: train[n].round(4).tolist() for n in series_of(wide)}}}
 
 
 def api_key():
