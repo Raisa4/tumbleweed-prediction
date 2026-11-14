@@ -22,7 +22,7 @@ const sig = (x: number) => Number(x.toPrecision(2)).toLocaleString("en-US");
 
 export function Badge({ t, m }: { t: Trend; m: Variable }) {
   const worse = (t.slope > 0 ? "up" : "down") === m.worseWhen;
-  if (!t.significant) return <span className="badge flat">– No clear trend</span>;
+  if (!t.significant) return <span className="badge flat">– No steady change</span>;
   return (
     <span className={worse ? "badge bad" : "badge good"}>
       {t.slope > 0 ? "▲" : "▼"} {worse ? "Getting worse" : "Easing"}
@@ -167,7 +167,7 @@ export default function TrendPanel({ region }: { region: string }) {
         </span>
         <span className="badge bad">▲ Getting worse</span>
         <span className="badge good">▼ Easing</span>
-        <span className="badge flat">– No clear trend</span>
+        <span className="badge flat">– No steady change</span>
       </div>
       <Card
         m={INDEX}

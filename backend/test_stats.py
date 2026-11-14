@@ -49,6 +49,8 @@ def test_windy_days_and_events_map_to_growth_season():
 def test_backtest_ranks_event_season():
     # Victorville April 2018 -> season 2017, which has the highest index -> rank 1 of 3.
     index = pd.Series([0.1, 0.9, -0.5], index=[2016, 2017, 2018])
-    events = pd.DataFrame({"date": ["2018-04-16"], "place": ["Victorville, CA"]})
+    events = pd.DataFrame({"date": ["2018-04-16"], "place": ["Victorville, CA"],
+                           "lat": [34.45], "lon": [-117.38], "source_url": ["https://example.org"]})
     assert backtest(index, events) == [{"date": "2018-04-16", "place": "Victorville, CA", "season": 2017,
-                                        "index_value": 0.9, "rank": 1, "of_years": 3}]
+                                        "index_value": 0.9, "rank": 1, "of_years": 3,
+                                        "lat": 34.45, "lon": -117.38, "source_url": "https://example.org"}]

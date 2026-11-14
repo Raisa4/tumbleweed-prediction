@@ -7,6 +7,7 @@ import {
   Pane,
   Popup,
   Rectangle,
+  ScaleControl,
   TileLayer,
   useMap,
 } from "react-leaflet";
@@ -85,6 +86,8 @@ export function BaseMap({
     <MapContainer className={className} preferCanvas scrollWheelZoom={false} zoomSnap={0.25}>
       <Fit bbox={region.bbox} onReady={onReady} />
       <Tiles basemap="streets" />
+      {/* Scale bar (km and miles), like on a normal map. */}
+      <ScaleControl position="bottomleft" />
       <StudyArea bbox={region.bbox} />
       {children}
     </MapContainer>

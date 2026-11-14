@@ -184,7 +184,7 @@ Hindcast: `geo/output/{region}/hindcast/pileup_{t}_{T}_{predicted|actual}.geojso
   ```
   Significance: p < 0.05.
 - `GET /index?region={id}` → same shape, for the Tumbleweed Conditions Index
-- `GET /backtest?region={id}` → `[{"date", "place", "season", "index_value", "rank", "of_years"}]` (rank 1 = worst season)
+- `GET /backtest?region={id}` → `[{"date", "place", "season", "index_value", "rank", "of_years", "lat", "lon", "source_url"}]` (rank 1 = worst season)
 - `GET /layers/{region}/sources.geojson`
 - `GET /layers/{region}/pileup.geojson?threshold={t}`
 - `GET /forecast?region={id}&target={T}` → `forecast_{T}.json`

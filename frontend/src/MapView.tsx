@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, Marker, Popup, Tooltip, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, Popup, ScaleControl, Tooltip, useMapEvents } from "react-leaflet";
 import L, { type Map as LeafletMap } from "leaflet";
 import {
   getBacktest,
@@ -198,6 +198,8 @@ export default function MapView({
       >
         <Zoom onZoom={setZoom} />
         <Tiles basemap={basemap} />
+        {/* Scale bar (km and miles), like on a normal map. */}
+        <ScaleControl position="bottomleft" />
         {regions.map((r) => (
           <StudyArea key={r.id} bbox={r.bbox} />
         ))}

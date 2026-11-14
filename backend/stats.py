@@ -73,4 +73,6 @@ def backtest(index, events):
     # reindex(season) looks up each event's season in the index / rank tables.
     return pd.DataFrame({"date": events.date, "place": events.place, "season": season,
                          "index_value": index.round(2).reindex(season).values,
-                         "rank": rank.reindex(season).values, "of_years": len(index)}).to_dict("records")
+                         "rank": rank.reindex(season).values, "of_years": len(index),
+                         # Location and news link, so the frontend can draw a marker with a popup on the map.
+                         "lat": events.lat, "lon": events.lon, "source_url": events.source_url}).to_dict("records")
