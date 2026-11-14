@@ -1,41 +1,117 @@
-export type Var = {
-  id: string; label: string; unit: string; source: string; step: string
-  def: string; question: string; worseWhen: 'up' | 'down'
-}
+export type Dir = "up" | "down";
 
-export const INDEX: Var = {
-  id: 'index', label: 'Tumbleweed Conditions Index', unit: 'std. dev.', source: 'All five NASA variables combined',
-  step: 'The whole chain',
-  def: 'The five conditions below, each turned into "how unusual is this year" and averaged. 0 = a typical year; +1 = clearly worse than usual for tumbleweeds.',
-  question: 'Overall, are tumbleweed conditions here getting worse?', worseWhen: 'up',
-}
+export type Variable = {
+  id: string;
+  label: string;
+  unit: string;
+  source: string;
+  definition: string;
+  worseWhen: Dir;
+  digits: number;
+};
 
-export const VARS: Var[] = [
+export const VARS: Variable[] = [
   {
-    id: 'spring_precip', label: 'Spring rainfall', unit: 'mm', source: 'NASA GPM IMERG', step: '1 · Seeds sprout',
-    def: 'Total rain from March to May. A wet spring lets more tumbleweed seedlings take root.',
-    question: 'Are springs getting wetter?', worseWhen: 'up',
+    id: "spring_precip",
+    label: "Spring rain",
+    unit: "mm",
+    source: "NASA GPM IMERG satellite rainfall",
+    definition:
+      "Total rain from March to May. A wet spring lets tumbleweed seedlings take hold, so more rain means more plants later.",
+    worseWhen: "up",
+    digits: 0,
   },
   {
-    id: 'peak_ndvi_anom', label: 'Vegetation greenness', unit: 'NDVI', source: 'NASA MODIS (MOD13Q1)', step: '2 · Plants bulk up',
-    def: 'How green the open land gets at the summer peak, compared with the 2001–2025 average. Greener means bigger plants, which become bigger tumbleweeds.',
-    question: 'Is summer growth on open land getting stronger?', worseWhen: 'up',
+    id: "peak_ndvi_anom",
+    label: "Peak greenness",
+    unit: "NDVI",
+    source: "NASA MODIS MOD13Q1 vegetation index",
+    definition:
+      "How green the open land got at its peak, compared with a normal year. More green means more plant material that can dry out and blow away.",
+    worseWhen: "up",
+    digits: 3,
   },
   {
-    id: 'autumn_soilm', label: 'Autumn soil moisture', unit: 'kg/m²', source: 'NASA GLDAS Noah', step: '3 · Plants dry and snap',
-    def: 'Water in the top 10 cm of soil, September–November. Dry soil makes plants brittle so they snap off at the base. Lower is worse.',
-    question: 'Are autumns getting drier?', worseWhen: 'down',
+    id: "autumn_soilm",
+    label: "Autumn soil moisture",
+    unit: "kg/m²",
+    source: "NASA GLDAS Noah land model",
+    definition:
+      "How wet the top 10 cm of soil was from September to November. Drier soil makes plants go brittle and snap off sooner, so lower is worse.",
+    worseWhen: "down",
+    digits: 1,
   },
   {
-    id: 'windy_days', label: 'Windy days', unit: 'days', source: 'NASA MERRA-2', step: '4 · Wind rolls them',
-    def: 'Days from November to April when the strongest wind of the day reaches 12 m/s (27 mph). Wind is what rolls dry plants into towns and roads.',
-    question: 'Are windy winter days becoming more common?', worseWhen: 'up',
+    id: "windy_days",
+    label: "Windy days",
+    unit: "days",
+    source: "NASA MERRA-2 reanalysis, via NASA POWER",
+    definition:
+      "Days from November to April when the wind reached 8 m/s (about 29 km/h) as a regional hourly average. Gusts at the ground are stronger than this.",
+    worseWhen: "up",
+    digits: 0,
   },
   {
-    id: 'barren_frac', label: 'Open land', unit: 'fraction', source: 'NASA MODIS (MCD12Q1)', step: '5 · Room to grow',
-    def: 'Share of the region that is bare ground, open shrubland or grassland: the ground tumbleweeds grow on.',
-    question: 'Is there more open land than before?', worseWhen: 'up',
+    id: "barren_frac",
+    label: "Open land",
+    unit: "share of area",
+    source: "NASA MODIS MCD12Q1 land cover",
+    definition:
+      "Share of the area that is bare ground, open shrub or grassland: the disturbed, open land tumbleweeds grow on.",
+    worseWhen: "up",
+    digits: 3,
   },
-]
+];
 
-export const ALL = [INDEX, ...VARS]
+export const INDEX = {
+  id: "index",
+  label: "Tumbleweed Conditions Index",
+  unit: "vs. normal",
+  source: "Combined from the NASA drivers below",
+  definition:
+    "All drivers rolled into one number per season. 0 is a normal season; +1 means conditions one standard step more favourable to pile-ups than normal, -1 one step less.",
+  worseWhen: "up" as Dir,
+  digits: 2,
+};
+
+export const meta = (id: string) => (id === "index" ? INDEX : VARS.find((v) => v.id === id)!);
+
+export const fmt = (v: number, digits: number) =>
+  v.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
+export const seasonLabel = (s: number) => `plants grew in ${s}, blew Nov ${s} – Apr ${s + 1}`;
+
+export const METHODS = {
+  mean: "Long-term average",
+  sen: "Trend line",
+  tabpfn: "TabPFN (AI model)",
+} as const;
+
+export const ROLES = [
+  { id: "city", label: "City, road crew or fire district", tab: "map" },
+  { id: "farmer", label: "Farmer or landowner", tab: "map" },
+  { id: "student", label: "Student or just curious", tab: "trends" },
+] as const;
+
+export type RoleId = (typeof ROLES)[number]["id"];
+
+export const THRESHOLDS = [4, 6, 8, 10, 12];
+
+export const RISK_CLASSES = [
+  { min: 0.05, colour: "#F0A050" },
+  { min: 0.1, colour: "#E27A2B" },
+  { min: 0.2, colour: "#C85614" },
+  { min: 0.4, colour: "#94380A" },
+  { min: 0.7, colour: "#561D03" },
+];
+
+export const riskColour = (r: number) =>
+  RISK_CLASSES.reduce((c, k) => (r >= k.min ? k.colour : c), RISK_CLASSES[0].colour);
+
+export const SOURCE_CLASSES = [
+  { test: (w: number) => w < 0.45, colour: "#7DBFB0", label: "Past sightings nearby" },
+  { test: (w: number) => w < 0.55, colour: "#36988A", label: "Open land" },
+  { test: () => true, colour: "#145A50", label: "Open land + past sightings" },
+];
+
+export const sourceColour = (w: number) => SOURCE_CLASSES.find((c) => c.test(w))!.colour;

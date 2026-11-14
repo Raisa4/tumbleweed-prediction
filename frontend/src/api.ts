@@ -1,47 +1,137 @@
-import { useEffect, useState } from 'react'
+export type Region = {
+  id: string;
+  name: string;
+  bbox: [number, number, number, number];
+};
 
-const API: string = import.meta.env.VITE_API ?? 'fixtures'
-export const usingFixtures = API === 'fixtures'
-const F = '/fixtures'
-
-export type Region = { id: string; name: string; bbox: [number, number, number, number] }
 export type Trend = {
-  region: string; var: string; years: number[]; values: number[]
-  slope: number; ci_low: number; ci_high: number; p: number
-  trend: 'increasing' | 'decreasing' | 'no trend'; significant: boolean; verdict: string
-}
+  region: string;
+  var: string;
+  years: number[];
+  values: number[];
+  slope: number;
+  ci_low: number;
+  ci_high: number;
+  p: number;
+  trend: "increasing" | "decreasing" | "no trend";
+  significant: boolean;
+  verdict: string;
+};
+
 export type BacktestRow = {
-  date: string; place: string; index_value: number; rank: number; of_years: number
-  lat: number; lon: number; source_url: string; season: number
+  date: string;
+  place: string;
+  season: number;
+  index_value: number;
+  rank: number;
+  of_years: number;
+  lat?: number;
+  lon?: number;
+  source_url?: string;
+};
+
+export type Prediction = {
+  var: string;
+  model: "mean" | "sen" | "tabpfn";
+  predicted: number;
+  pi_low: number;
+  pi_high: number;
+  actual: number;
+  inside: boolean;
+  error: number;
+  baseline: number;
+  baseline_error: number;
+};
+
+export type Forecast = {
+  target: number;
+  train: [number, number];
+  made_on: string;
+  validation: {
+    years: [number, number];
+    models: Record<string, Prediction["model"]>;
+    inside_interval: number;
+    beat_mean: number;
+    same_as_mean: number;
+    of: number;
+  };
+  variables: Prediction[];
+  index: Prediction & { predicted_rank: number; actual_rank: number; of_years: number };
+  history: { years: number[] } & Record<string, number[]>;
+};
+
+export type Cells = {
+  type: "FeatureCollection";
+  features: {
+    type: "Feature";
+    properties: Record<string, number>;
+    geometry: { type: "Polygon"; coordinates: number[][][] };
+  }[];
+};
+
+export type Points = {
+  type: "FeatureCollection";
+  features: {
+    type: "Feature";
+    properties: { id: string; source: string; quality: string; taxon: string };
+    geometry: { type: "Point"; coordinates: [number, number] };
+  }[];
+};
+
+const BASE = import.meta.env.VITE_API ?? "http://localhost:8000";
+
+let fixtures = false;
+export const usingFixtures = () => fixtures;
+
+const EMPTY = { type: "FeatureCollection" as const, features: [] };
+
+async function grab<T>(live: string, backup: string | null): Promise<T | null> {
+  const res = await fetch(BASE + live).catch(() => null);
+  if (res?.ok) return res.json() as Promise<T>;
+  if (res?.status === 404) return null;
+  fixtures = true;
+  if (!backup) return null;
+  const fix = await fetch(backup).catch(() => null);
+  return fix?.ok ? (fix.json() as Promise<T>) : null;
 }
 
-export const urls = {
-  regions: () => (usingFixtures ? `${F}/regions.json` : `${API}/regions`),
-  trend: (r: string, v: string) =>
-    v === 'index'
-      ? usingFixtures ? `${F}/index/${r}.json` : `${API}/index?region=${r}`
-      : usingFixtures ? `${F}/trend/${r}/${v}.json` : `${API}/trend?region=${r}&var=${v}`,
-  backtest: (r: string) => (usingFixtures ? `${F}/backtest/${r}.json` : `${API}/backtest?region=${r}`),
-  sources: (r: string) => `${usingFixtures ? `${F}/layers` : `${API}/layers`}/${r}/sources.geojson`,
-  pileup: (r: string, t: number) =>
-    usingFixtures ? `${F}/layers/${r}/pileup_${t}.geojson` : `${API}/layers/${r}/pileup.geojson?threshold=${t}`,
-}
+export const getRegions = () =>
+  grab<Region[]>("/regions", "/fixtures/regions.json").then((r) => r ?? []);
 
-/** Fetch JSON; returns data, or an Error to show, or null while loading. */
-export function useJson<T>(url: string): T | Error | null {
-  const [state, setState] = useState<{ url: string; v: T | Error } | null>(null)
-  useEffect(() => {
-    let live = true
-    fetch(url)
-      .catch(() => Promise.reject(new Error(usingFixtures ? `Could not load ${url}`
-        : `Can't reach the backend at ${API}. Start it (cd backend && uvicorn main:app --reload) or use "npm run dev" for placeholder data.`)))
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status} from ${url}`))))
-      .then((v) => live && setState({ url, v }), (e: Error) => live && setState({ url, v: e }))
-    return () => { live = false }
-  }, [url])
-  return state?.url === url ? state.v : null
-}
+export const getTrend = (region: string, v: string) =>
+  grab<Trend>(`/trend?region=${region}&var=${v}`, `/fixtures/trend/${region}/${v}.json`);
 
-const SUFFIX = ['th', 'st', 'nd', 'rd']
-export const ordinal = (n: number) => n + (SUFFIX[((n % 100) - 20) % 10] ?? SUFFIX[n % 100] ?? 'th')
-export const fmt = (x: number) => (Math.abs(x) >= 100 ? x.toFixed(0) : Number(x.toPrecision(3)).toString())
+export const getIndex = (region: string) =>
+  grab<Trend>(`/index?region=${region}`, `/fixtures/index/${region}.json`);
+
+export const getBacktest = (region: string) =>
+  grab<BacktestRow[]>(`/backtest?region=${region}`, `/fixtures/backtest/${region}.json`).then(
+    (r) => r ?? [],
+  );
+
+export const getForecast = (region: string, target: number) =>
+  grab<Forecast>(`/forecast?region=${region}&target=${target}`, null);
+
+export const getSources = (region: string) =>
+  grab<Cells>(`/layers/${region}/sources.geojson`, null).then((r) => r ?? EMPTY);
+
+export const getPileup = (region: string, threshold: number) =>
+  grab<Cells>(`/layers/${region}/pileup.geojson?threshold=${threshold}`, null).then(
+    (r) => r ?? EMPTY,
+  );
+
+export const getHindcast = (
+  region: string,
+  threshold: number,
+  target: number,
+  kind: "predicted" | "actual",
+) =>
+  grab<Cells>(
+    `/layers/${region}/hindcast.geojson?threshold=${threshold}&target=${target}&kind=${kind}`,
+    null,
+  ).then((r) => r ?? EMPTY);
+
+export const getSightings = (region: string, target: number) =>
+  grab<Points>(`/layers/${region}/sightings.geojson?target=${target}`, null).then(
+    (r) => r ?? EMPTY,
+  );

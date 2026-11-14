@@ -1,65 +1,158 @@
-import { useState } from 'react'
-import { BacktestRow, Region, urls, useJson, usingFixtures } from './api'
-import { Backtest } from './Backtest'
-import { Demo } from './Demo'
-import { Focus, Layers, MapView } from './MapView'
-import { Onboarding, Role } from './Onboarding'
-import { TrendPanel } from './TrendPanel'
+import { useEffect, useState } from "react";
+import MapView from "./MapView";
+import Tables from "./Tables";
+import TrendPanel from "./TrendPanel";
+import Forecast from "./Forecast";
+import Demo from "./Demo";
+import { BackendHelp } from "./MapView";
+import { getBacktest, getRegions, usingFixtures, type BacktestRow, type Region } from "./api";
 
-export type View = {
-  region: string; selected: string | null; threshold: number; layers: Layers; focus: Focus; highlight: string | null
-}
+export type Tab = "map" | "trends" | "pileups" | "forecast";
 
-const ROLE_VIEW: Record<Role, Pick<View, 'selected' | 'layers'>> = {
-  city: { selected: null, layers: { sources: false, pileup: true } },
-  farmer: { selected: null, layers: { sources: true, pileup: false } },
-  student: { selected: 'index', layers: { sources: true, pileup: true } },
-}
+const PAGES: { id: Exclude<Tab, "map">; label: string; question: string; lede: string }[] = [
+  {
+    id: "trends",
+    label: "Trends",
+    question: "Are tumbleweed conditions getting worse?",
+    lede: "Each card is one weather or land driver measured by NASA every season since 2001, with a statistical test of whether it is really changing.",
+  },
+  {
+    id: "pileups",
+    label: "Past pile-ups",
+    question: "Did our index see real pile-ups coming?",
+    lede: "We take pile-ups that made the news and check how high our index was in the season that grew those plants.",
+  },
+  {
+    id: "forecast",
+    label: "Prediction vs reality",
+    question: "Could we have warned them in advance?",
+    lede: "We hid the most recent seasons, predicted them from earlier years only, and compare with what really happened.",
+  },
+];
+
+const hashTab = (): Tab => PAGES.find((t) => "#" + t.id === window.location.hash)?.id ?? "map";
 
 export default function App() {
-  const regions = useJson<Region[]>(urls.regions())
-  const [role, setRole] = useState<Role | null>(null)
-  const [demo, setDemo] = useState<number | null>(null)
-  const [view, setFull] = useState<View>({
-    region: 'salt_lake_valley', selected: 'index', threshold: 12, layers: ROLE_VIEW.student.layers, focus: null, highlight: null,
-  })
-  const setView = (v: Partial<View>) => setFull((cur) => ({ ...cur, ...v }))
-  const backtest = useJson<BacktestRow[]>(urls.backtest(view.region))
+  const [tab, setTab] = useState<Tab>(hashTab);
+  const [demo, setDemo] = useState(false);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [regionId, setRegionId] = useState("");
+  const [events, setEvents] = useState<BacktestRow[]>([]);
 
-  if (regions instanceof Error) return <p className="error">{regions.message}</p>
-  if (!regions) return <p>Loading…</p>
-  const start = (r: Role, region: string) => { setRole(r); setView({ region, focus: null, ...ROLE_VIEW[r] }) }
-  if (!role && demo === null) return <Onboarding regions={regions} onStart={start} onDemo={() => { start('student', 'salt_lake_valley'); setDemo(0) }} />
+  useEffect(() => {
+    getRegions().then((rs) => {
+      setRegions(rs);
+      setRegionId((id) => id || rs[0]?.id || "");
+    });
+    const sync = () => setTab(hashTab());
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
 
-  const region = regions.find((r) => r.id === view.region)!
-  const events = backtest && !(backtest instanceof Error) ? backtest : []
+  useEffect(() => {
+    if (!regionId) return;
+    let alive = true;
+    getBacktest(regionId).then((rs) => alive && setEvents(rs));
+    return () => {
+      alive = false;
+    };
+  }, [regionId]);
+
+  const go = (t: Tab) => {
+    window.location.hash = t === "map" ? "" : t;
+  };
+
+  const region = regions.find((r) => r.id === regionId);
+  const page = PAGES.find((p) => p.id === tab);
+
   return (
-    <>
-      <header>
-        <strong className="brand" onClick={() => setRole(null)}>Tumbleweed Trend Detective</strong>
-        <select value={view.region} onChange={(e) => setView({ region: e.target.value, focus: null, highlight: null })}>
-          {regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-        </select>
-        <button className="primary" onClick={() => setDemo(0)}>Guided demo</button>
+    <div className="app">
+      <header className="top">
+        <a className="brand" href="#">
+          Tumbleweed Trend Detective
+        </a>
+        <nav className="tabs" aria-label="Sections">
+          <a href="#" aria-current={tab === "map" ? "page" : undefined}>
+            Map
+          </a>
+          {PAGES.map((p) => (
+            <a key={p.id} href={"#" + p.id} aria-current={tab === p.id ? "page" : undefined}>
+              {p.label}
+            </a>
+          ))}
+        </nav>
+        {page && (
+          <label className="pick">
+            <span>Region</span>
+            <select value={regionId} onChange={(e) => setRegionId(e.target.value)}>
+              {regions.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <button
+          className="ghost"
+          onClick={() => {
+            setDemo(true);
+            setRegionId("salt_lake_valley");
+            go("trends");
+          }}
+        >
+          ▶ Guided demo
+        </button>
       </header>
-      {usingFixtures && <p className="banner">Showing placeholder numbers (fixtures), not real NASA data yet.</p>}
-      {backtest instanceof Error && <p className="error">{backtest.message}</p>}
-      <div className={`layout ${role === 'student' ? '' : 'map-first'}`}>
-        <div className="left">
-          <TrendPanel region={view.region} selected={view.selected} onSelect={(selected) => setView({ selected })}
-            eventSeasons={[...new Set(events.map((e) => e.season))]} />
-          <Backtest rows={events} highlight={view.highlight} />
-        </div>
-        <div className="right">
-          <MapView region={region} events={events} threshold={view.threshold} setThreshold={(threshold) => setView({ threshold })}
-            layers={view.layers} setLayers={(layers) => setView({ layers })} focus={view.focus} />
-        </div>
+
+      {demo && (
+        <Demo
+          onStep={(t, r) => {
+            setRegionId(r);
+            go(t);
+          }}
+          onClose={() => setDemo(false)}
+        />
+      )}
+
+      <div className="stage">
+        {regions.length > 0 && (
+          <MapView regions={regions} regionId={regionId} onRegion={setRegionId} onOpen={go} />
+        )}
+
+        {page && region && (
+          <div className="sheet">
+            <main className="wrap">
+              <button className="back" onClick={() => go("map")}>
+                ← Back to the map
+              </button>
+              <h1 className="question">{page.question}</h1>
+              <p className="lede">
+                {page.lede} Region: <strong>{region.name}</strong>.
+              </p>
+              {usingFixtures() && (
+                <div className="warn">
+                  Can't reach the backend, so you are seeing placeholder numbers, not NASA
+                  measurements. <BackendHelp />
+                </div>
+              )}
+              {tab === "trends" ? (
+                <TrendPanel region={region.id} />
+              ) : tab === "pileups" ? (
+                <Tables region={region.id} events={events} />
+              ) : (
+                <Forecast region={region} />
+              )}
+              <footer className="note">
+                Satellites cannot see single tumbleweeds: the plants are 0.5 to 2 m across, the
+                pixels 250 to 500 m. We model conditions and habitat, not plants. Data: NASA GPM
+                IMERG, MODIS MOD13Q1 and MCD12Q1, GLDAS Noah, MERRA-2 (via NASA POWER); sightings
+                from GBIF and iNaturalist; streets and buildings from OpenStreetMap.
+              </footer>
+            </main>
+          </div>
+        )}
       </div>
-      {demo !== null && <Demo step={demo} setStep={setDemo} setView={setView} />}
-      <footer className="small">
-        Data: NASA GPM IMERG, MODIS MOD13Q1 & MCD12Q1, GLDAS Noah, MERRA-2; sightings from GBIF and iNaturalist; map © OpenStreetMap.
-        Satellites can't see individual tumbleweeds: we model the conditions and habitat they need.
-      </footer>
-    </>
-  )
+    </div>
+  );
 }
