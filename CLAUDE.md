@@ -49,6 +49,7 @@ Season Y = plants grow and dry in year Y, tumble Nov Y–Apr Y+1. It joins `spri
 7. **Always show the validation score next to 2023/2024**, e.g. "2011–2022: real value inside our 95% interval 11 of 12 times; trend beat the average 7 of 12."
 
 **TabPFN key:** `TAB_PFN_API_KEY` in the repo-root `.env` (gitignored). Read it from the environment; never hard-code, print, log or commit it. Data sent to the API is public NASA area averages only.
+**TabPFN setup:** `tabpfn-client`, pinned `model_path="v3.5_default"`. One call per (region, season) for all 6 series: features = series name, season, last season's value, all z-scored with training stats; interval = 2.5% / 97.5% quantiles, point = median. ~4 s per call, 14 calls per region. `python backend/forecast.py mean sen` runs offline without TabPFN.
 
 ## 5. Honesty rules (put these in the pitch, never contradict them in UI text)
 
@@ -157,15 +158,20 @@ date,place,lat,lon,source_url
 
 ### Geo outputs
 `geo/output/{region}/sources.geojson` (property `weight` 0–1), `geo/output/{region}/pileup_{t}.geojson` (property `risk` 0–1), t ∈ {8,10,12,14,16}.
-Hindcast (draft): `geo/output/{region}/hindcast/pileup_{t}_{T}_{predicted|actual}.geojson` (property `risk` 0–1) and `geo/output/{region}/sightings_{T}.geojson`, T ∈ {2023, 2024}.
+Hindcast: `geo/output/{region}/hindcast/pileup_{t}_{T}_{predicted|actual}.geojson` (properties `risk` 0–1, `hours`) and `geo/output/{region}/sightings_{T}.geojson` (points: `id`, `source`, `quality`, `taxon`), T ∈ {2023, 2024}. Built by `python geo/hindcast.py` (written by B for C): predicted = mean hours per direction over the seasons before T, actual = season T's hours; both maps share one 0–1 scale so equal colour = equal risk. `hours` = hours ≥ t in the season (mean per season for predicted). Sightings of season T = records with `year == T`.
 
 ### `data/{region}/forecast_{T}.json` — frozen hindcast, written by B (draft)
 ```json
-{"target": 2023, "train": [2001, 2022], "made_on": "2026-11-14", "model": "sen|mean|tabpfn",
- "validation": {"years": [2011, 2022], "inside_interval": 11, "beat_mean": 7, "of": 12},
- "variables": [{"var": "...", "predicted": 0.0, "pi_low": 0.0, "pi_high": 0.0, "actual": 0.0, "inside": true}],
- "index": {"predicted": 0.0, "actual": 0.0, "predicted_rank": 1, "actual_rank": 1, "of_years": 23}}
+{"target": 2023, "train": [2001, 2022], "made_on": "2026-11-14",
+ "validation": {"years": [2011, 2022], "compared": ["mean", "sen", "tabpfn"], "tabpfn_model": "v3.5_default",
+                "models": {"windy_days": "sen", "spring_precip": "mean", "...": "..."},
+                "inside_interval": 66, "beat_mean": 23, "same_as_mean": 36, "of": 72},
+ "variables": [{"var": "...", "model": "mean|sen|tabpfn", "predicted": 0.0, "pi_low": 0.0, "pi_high": 0.0,
+                "actual": 0.0, "inside": true, "error": 0.0, "baseline": 0.0, "baseline_error": 0.0}],
+ "index": {"...same fields as a variable...", "predicted_rank": 1, "actual_rank": 1, "of_years": 23},
+ "history": {"years": [2001, 2022], "spring_precip": [0.0], "...": [], "index": [0.0]}}
 ```
+`validation.models` = model chosen per series by lowest mean error on 2011–2022. `beat_mean` counts validation cases where the chosen trend beat the average, out of `of - same_as_mean`. `history` = training seasons for the chart (index z-scored with training stats). Rank 1 = worse than every training season. Written by `python backend/forecast.py`; rerun it when `annual.csv` changes.
 
 ### API — FastAPI, port 8000, CORS on
 - `GET /regions` → `regions.json`
@@ -181,8 +187,9 @@ Hindcast (draft): `geo/output/{region}/hindcast/pileup_{t}_{T}_{predicted|actual
 - `GET /backtest?region={id}` → `[{"date", "place", "season", "index_value", "rank", "of_years"}]` (rank 1 = worst season)
 - `GET /layers/{region}/sources.geojson`
 - `GET /layers/{region}/pileup.geojson?threshold={t}`
-- `GET /forecast?region={id}&target={T}` → `forecast_{T}.json` (draft)
-- `GET /layers/{region}/hindcast.geojson?threshold={t}&target={T}&kind=predicted|actual` (draft)
+- `GET /forecast?region={id}&target={T}` → `forecast_{T}.json`
+- `GET /layers/{region}/hindcast.geojson?threshold={t}&target={T}&kind=predicted|actual`
+- `GET /layers/{region}/sightings.geojson?target={T}`
 
 ---
 
