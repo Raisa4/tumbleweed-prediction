@@ -2,9 +2,12 @@
 import json
 from pathlib import Path
 
+import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+
+from stats import SIGN, UNITS, analyze, backtest, conditions_index, seasons
 
 # paths are resolved from this file, so the server works no matter where it is started from.
 ROOT = Path(__file__).resolve().parent.parent
@@ -44,3 +47,32 @@ def pileup(region: str, threshold: int):
     if threshold not in THRESHOLDS:
         raise HTTPException(422, f"threshold must be one of {sorted(THRESHOLDS)}")
     return FileResponse(region_dir(GEO, region) / f"pileup_{threshold}.geojson", media_type="application/geo+json")
+
+
+def annual(region):
+    """Long-format yearly table (year, variable, value) for a region."""
+    return pd.read_csv(region_dir(DATA, region) / "annual.csv")
+
+
+def region_index(region):
+    """Tumbleweed Conditions Index per growth season."""
+    return conditions_index(seasons(annual(region)))
+
+
+@app.get("/trend")
+def trend(region: str, var: str):
+    if var not in SIGN.index:
+        raise HTTPException(422, f"var must be one of {list(SIGN.index)}")
+    series = annual(region).query("variable == @var").sort_values("year")
+    return {"region": region, "var": var, **analyze(series.year, series.value, UNITS[var])}
+
+
+@app.get("/index")
+def index(region: str):
+    idx = region_index(region)
+    return {"region": region, "var": "index", **analyze(idx.index, idx.values, UNITS["index"])}
+
+
+@app.get("/backtest")
+def get_backtest(region: str):
+    return backtest(region_index(region), pd.read_csv(region_dir(DATA, region) / "events.csv"))
