@@ -24,7 +24,7 @@ REACH_M = 4000
 DENSITY_SIGMA_CELLS = 2
 MAX_UNCERTAINTY_M = 1000
 EXPORT_MIN = 0.05
-THRESHOLDS = [8, 10, 12, 14, 16]
+THRESHOLDS = [4, 6, 8, 10, 12]  # MERRA-2 ~50 km mean wind rarely reaches 14–16 m/s; agreed by the team
 GBIF = "https://api.gbif.org/v1"
 GBIF_NAMES = ["Salsola tragus", "Salsola kali", "Salsola kali subsp. tragus", "Kali tragus",
               "Salsola iberica", "Bassia scoparia", "Kochia scoparia"]
