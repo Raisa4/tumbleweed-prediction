@@ -6,10 +6,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-# Paths are resolved from this file, so the server works no matter where it is started from.
+# paths are resolved from this file, so the server works no matter where it is started from.
 ROOT = Path(__file__).resolve().parent.parent
 DATA, GEO = ROOT / "data", ROOT / "geo" / "output"
-# Wind thresholds (m/s) for which Person C exports a pile-up layer.
+# wind thresholds (m/s) for which Person C exports a pile-up layer.
 THRESHOLDS = {8, 10, 12, 14, 16}
 
 app = FastAPI(title="Tumbleweed Trend Detective")

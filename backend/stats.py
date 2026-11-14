@@ -1,4 +1,4 @@
-"""Trend tests, Tumbleweed Conditions Index and backtest."""
+#Trend tests, Tumbleweed Conditions Index and backtest
 import numpy as np
 import pandas as pd
 import pymannkendall as mk
@@ -12,7 +12,8 @@ UNITS = {"spring_precip": "mm", "peak_ndvi_anom": "NDVI", "autumn_soilm": "kg/m�
 
 
 def analyze(years, values, unit=""):
-    """Hamed-Rao Mann-Kendall test, Sen's slope with 95% CI and a plain-English verdict."""
+    #Hamed-Rao Mann-Kendall test, Sen's slope with 95% CI and a plain-English verdict.
+
     # Hamed-Rao corrects the p-value for year-to-year autocorrelation (a wet year often follows a wet year).
     test = mk.hamed_rao_modification_test(values, alpha=ALPHA)
     # Same Sen slope as pymannkendall, but scipy also returns its 95% confidence interval.
@@ -28,25 +29,25 @@ def analyze(years, values, unit=""):
 
 
 def seasons(annual):
-    """One row per growth season Y; windy_days labelled Y+1 (its Nov Y–Apr Y+1 winter) joins season Y."""
+    # One row per growth season Y; windy_days labelled Y+1 (its Nov Y–Apr Y+1 winter) joins season Y."""
     shifted = annual.assign(year=annual.year - annual.variable.eq("windy_days"))
     # dropna keeps only seasons that have all five variables (drops 2000 and 2025 until A adds windy_days 2026).
     return shifted.pivot(index="year", columns="variable", values="value")[SIGN.index].dropna()
 
 
 def conditions_index(wide):
-    """Mean of sign-adjusted z-scores across variables, one value per season."""
+    #Mean of sign-adjusted z-scores across variables, one value per season."""
     z = (wide - wide.mean()) / wide.std()
     return (z * SIGN).mean(axis=1)
 
 
 def season_of(dates):
-    """Growth season behind a pile-up: Nov–Dec events -> same year, Jan–Oct events -> previous year."""
+    #Growth season behind a pile-up: Nov–Dec events -> same year, Jan–Oct events -> previous year."""
     return dates.dt.year - (dates.dt.month <= 10)
 
 
 def backtest(index, events):
-    """Per event: its season's index value and rank among all seasons (1 = worst)."""
+    #Per event: its season's index value and rank among all seasons (1 = worst)."""
     season = season_of(pd.to_datetime(events.date))
     rank = index.rank(ascending=False, method="min").astype(int)
     return pd.DataFrame({"date": events.date, "place": events.place, "season": season,

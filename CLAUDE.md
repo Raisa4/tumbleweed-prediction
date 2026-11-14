@@ -31,8 +31,24 @@ Move those groups from cleanup to prevention: show whether tumbleweed conditions
 2. **Backtest.** Check whether the index was high in the seasons before real, news-reported pile-ups.
 3. **Pile-up map (bonus layer).** Seed sources from past sightings (GBIF) + open land; push them downwind using real wind directions; mark where they stop against buildings/fences.
 4. **Website** that guides users by role and region, explains each variable simply, and runs a guided demo.
+5. **Prediction vs reality (hindcast).** Prove the method on seasons it has not seen: predict 2023 and 2024 from earlier years only and compare with what really happened (section 4b).
 
 **Users:** city / road crews / fire districts → pile-up map. Farmers → seed-source layer. Students → trend explorer.
+
+### Seasons (applies everywhere)
+Season Y = plants grow and dry in year Y, tumble Nov Y–Apr Y+1. It joins `spring_precip`, `peak_ndvi_anom`, `autumn_soilm`, `barren_frac` of year Y with `windy_days` labelled Y+1. A pile-up in Jan–Oct belongs to the previous season, Nov–Dec to the same year (e.g. 2024-03-02 South Jordan → season 2023, 2019-12-31 Hwy 240 → season 2019).
+
+## 4b. Prediction vs reality (hindcast)
+
+1. **Validation, 2011–2022 (rolling origin).** For each season T: train on 2001…T-1 only, predict T. Compare three forecasters per variable and for the index: training **mean** (baseline), **Sen trend** extended one year, **TabPFN** (Prior Labs tabular foundation model, via API, no fine-tuning — ~22 rows per region is too few). Each gives a value + 95% prediction interval. Pick the best on these years only.
+2. **Final test, seasons 2023 and 2024.** Run only the chosen forecaster, unchanged. 2023 is the headline demo: "would we have warned South Jordan before March 2024?"
+3. **No leakage:** index z-scores use the training years' mean/std only; a test asserts that changing season T's real data does not change T's prediction.
+4. **Frozen outputs:** predictions are written once to files with a `made_on` date and never silently recomputed.
+5. **Map (C):** predicted = pile-up with the wind of all training seasons (climatology); actual = pile-up with season T's wind. Overlay GBIF/iNaturalist sightings observed in season T.
+6. **Frontend (D):** "Prediction vs Reality" view per region and target season — table, chart (training series, forecast, interval band, actual point), predicted vs actual map side by side. Fixed size, all numbers visible without hover, so it can be screenshotted for the slides.
+7. **Always show the validation score next to 2023/2024**, e.g. "2011–2022: real value inside our 95% interval 11 of 12 times; trend beat the average 7 of 12."
+
+**TabPFN key:** `TAB_PFN_API_KEY` in the repo-root `.env` (gitignored). Read it from the environment; never hard-code, print, log or commit it. Data sent to the API is public NASA area averages only.
 
 ## 5. Honesty rules (put these in the pitch, never contradict them in UI text)
 
@@ -40,6 +56,7 @@ Move those groups from cleanup to prevention: show whether tumbleweed conditions
 - MERRA-2 wind is ~50 km resolution: regional wind seasons, not street-level paths.
 - The tumbling wind threshold is an **assumption**, exposed as a slider.
 - Validation = backtest against ~10 news-reported pile-ups: a plausibility check, not an accuracy score.
+- Hindcast: 12 validation + 2 test seasons is a demonstration, not an accuracy score. Single-year rain and wind are mostly unpredictable; say so when the real value falls outside the interval.
 - **Do NOT claim:** a fire probability %, insurer use cases, that we detect tumbleweeds from space.
 
 ---
@@ -58,12 +75,13 @@ Move those groups from cleanup to prevention: show whether tumbleweed conditions
 Use `earthaccess`; subset to bbox before loading; one function per variable, one `main` over regions. If a source isn't working within 45 min, switch to Giovanni area-averaged CSV exports and tell the team.
 **Done when:** all 3 regions have real `annual.csv` (5 variables × 25 years, no gaps) and `wind.csv`, committed, fixtures replaced.
 
-### Person B — Analyst / backend · `backend/` (Andrei)
+### Person B — Analyst / backend · `backend/` (Irina)
 **Job:** answer the challenge's question — is it getting worse, by how much, is it significant — and serve everything to the frontend.
 **Build:** `backend/main.py` (FastAPI) + `backend/stats.py`.
-- `stats.analyze(years, values) -> dict`: `pymannkendall.hamed_rao_modification_test` (trend, p; handles autocorrelation) + `pymannkendall.sens_slope` (slope, 95% CI) + plain-English verdict. Reused by `/trend` and `/index`.
-- Index: z-score each variable, flip `autumn_soilm` (drier = worse), mean.
-- Backtest: per event, index of the season ending before the event, rank among all years.
+- `stats.analyze(years, values) -> dict`: `pymannkendall.hamed_rao_modification_test` (trend, p; handles autocorrelation) + `scipy.stats.theilslopes` (Sen's slope + 95% CI; `pymannkendall.sens_slope` has no CI) + plain-English verdict. Reused by `/trend` and `/index`.
+- Index: z-score each variable, flip `autumn_soilm` (drier = worse), mean — per season (section 4 "Seasons").
+- Backtest: per event, index of the season that grew its plants, rank among all seasons (1 = worst).
+- Hindcast (section 4b): mean / Sen / TabPFN forecasters, rolling-origin validation 2011–2022, frozen forecasts for 2023 and 2024, `/forecast` endpoint.
 - All endpoints in section 7; CORS for localhost:5173; read data files per request.
 - pytest: known upward fixture → significant; flat → not; soil-moisture sign flip correct.
 **Done when:** all endpoints return real data for 3 regions, tests pass, and you can state one line per region (e.g. "windy_days increasing, p=0.03; 2024 index ranked 2nd of 25").
@@ -126,7 +144,7 @@ year,variable,value
 | `windy_days` | days Nov(prev yr)–Apr with daily max 10 m wind ≥ 12 m/s | MERRA-2 | days |
 | `barren_frac` | fraction of region barren / open shrub / grassland | MODIS MCD12Q1 | 0–1 |
 
-### `data/{region}/wind.csv` — hourly, Nov–Apr seasons
+### `data/{region}/wind.csv` — hourly, every Nov–Apr season 2000/01 … 2024/25 (needed for the hindcast map)
 ```
 time,speed_ms,dir_deg
 ```
@@ -139,6 +157,15 @@ date,place,lat,lon,source_url
 
 ### Geo outputs
 `geo/output/{region}/sources.geojson` (property `weight` 0–1), `geo/output/{region}/pileup_{t}.geojson` (property `risk` 0–1), t ∈ {8,10,12,14,16}.
+Hindcast (draft): `geo/output/{region}/hindcast/pileup_{t}_{T}_{predicted|actual}.geojson` (property `risk` 0–1) and `geo/output/{region}/sightings_{T}.geojson`, T ∈ {2023, 2024}.
+
+### `data/{region}/forecast_{T}.json` — frozen hindcast, written by B (draft)
+```json
+{"target": 2023, "train": [2001, 2022], "made_on": "2026-11-14", "model": "sen|mean|tabpfn",
+ "validation": {"years": [2011, 2022], "inside_interval": 11, "beat_mean": 7, "of": 12},
+ "variables": [{"var": "...", "predicted": 0.0, "pi_low": 0.0, "pi_high": 0.0, "actual": 0.0, "inside": true}],
+ "index": {"predicted": 0.0, "actual": 0.0, "predicted_rank": 1, "actual_rank": 1, "of_years": 23}}
+```
 
 ### API — FastAPI, port 8000, CORS on
 - `GET /regions` → `regions.json`
@@ -151,9 +178,11 @@ date,place,lat,lon,source_url
   ```
   Significance: p < 0.05.
 - `GET /index?region={id}` → same shape, for the Tumbleweed Conditions Index
-- `GET /backtest?region={id}` → `[{"date", "place", "index_value", "rank", "of_years"}]`
+- `GET /backtest?region={id}` → `[{"date", "place", "season", "index_value", "rank", "of_years"}]` (rank 1 = worst season)
 - `GET /layers/{region}/sources.geojson`
 - `GET /layers/{region}/pileup.geojson?threshold={t}`
+- `GET /forecast?region={id}&target={T}` → `forecast_{T}.json` (draft)
+- `GET /layers/{region}/hindcast.geojson?threshold={t}&target={T}&kind=predicted|actual` (draft)
 
 ---
 
