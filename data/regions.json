@@ -1,0 +1,5 @@
+[
+  {"id": "salt_lake_valley", "name": "Salt Lake Valley, UT", "bbox": [-112.20, 40.30, -111.80, 40.80]},
+  {"id": "victorville",      "name": "Victorville, CA",      "bbox": [-117.50, 34.40, -117.20, 34.65]},
+  {"id": "tri_cities_wa",    "name": "Tri-Cities, WA",       "bbox": [-119.50, 46.10, -119.00, 46.40]}
+]

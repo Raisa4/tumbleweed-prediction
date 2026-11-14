@@ -1,0 +1,8 @@
+numpy
+pandas
+geopandas
+osmnx>=2
+rasterio
+scipy
+requests
+pytest
