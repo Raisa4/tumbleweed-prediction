@@ -33,6 +33,8 @@ export function useJson<T>(url: string): T | Error | null {
   useEffect(() => {
     let live = true
     fetch(url)
+      .catch(() => Promise.reject(new Error(usingFixtures ? `Could not load ${url}`
+        : `Can't reach the backend at ${API}. Start it (cd backend && uvicorn main:app --reload) or use "npm run dev" for placeholder data.`)))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status} from ${url}`))))
       .then((v) => live && setState({ url, v }), (e: Error) => live && setState({ url, v: e }))
     return () => { live = false }
