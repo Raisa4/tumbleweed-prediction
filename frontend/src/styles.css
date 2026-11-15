@@ -54,6 +54,7 @@ html, body, #root { height: 100%; }
 .pick { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
 .pick select { font: inherit; font-weight: 400; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--header); background: var(--paper); color: var(--text); }
 .ghost { background: transparent; color: inherit; border: 2px solid currentColor; border-radius: 6px; padding: 5px 12px; font-size: 15px; font-weight: 600; }
+a.ghost { text-decoration: none; display: inline-flex; align-items: center; }
 .ghost:hover { background: rgba(74, 34, 8, 0.1); }
 
 .stage { position: relative; flex: 1; min-height: 0; }

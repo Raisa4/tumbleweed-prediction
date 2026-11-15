@@ -32,12 +32,12 @@ A short guided demo walks through *"Why did South Jordan get buried in 2024?"*.
 
 | Variable | What it measures | Dataset | Access |
 |---|---|---|---|
-| `spring_precip` | Total precipitation, March–May (mm) | GPM IMERG monthly (GPM_3IMERGM) | Giovanni area average |
-| `peak_ndvi_anom` | Peak growing-season greenness of open-land pixels, vs the 2001–2025 mean | MODIS Terra MOD13Q1 v061 (250 m) | AppEEARS |
-| `autumn_soilm` | Mean 0–10 cm soil moisture, September–November (kg/m²) | GLDAS Noah 0.25° monthly | Giovanni area average |
-| `windy_days` | Days from November to April with daily maximum 10 m wind ≥ 8 m/s | MERRA-2 | NASA POWER |
-| `barren_frac` | Share of the region that is open shrubland, grassland or barren | MODIS MCD12Q1 v061 (500 m) | AppEEARS |
-| hourly wind | Hourly 10 m wind speed and direction, every winter 2001–2025 | MERRA-2 | NASA POWER |
+| `spring_precip` | Total precipitation, March–May (mm) | [GPM IMERG monthly, V07 (GPM_3IMERGM)](https://www.earthdata.nasa.gov/data/catalog/ges-disc-gpm-3imergm-07) | [Giovanni](https://giovanni.gsfc.nasa.gov) area average |
+| `peak_ndvi_anom` | Peak growing-season greenness of open-land pixels, vs the 2001–2025 mean | [MODIS Terra MOD13Q1 v061 (250 m)](https://www.earthdata.nasa.gov/data/catalog/lpcloud-mod13q1-061) | [AppEEARS](https://appeears.earthdatacloud.nasa.gov) |
+| `autumn_soilm` | Mean 0–10 cm soil moisture, September–November (kg/m²) | [GLDAS Noah 0.25° monthly, v2.1](https://www.earthdata.nasa.gov/data/catalog/ges-disc-gldas-noah025-m-2.1) | [Giovanni](https://giovanni.gsfc.nasa.gov) area average |
+| `windy_days` | Days from November to April with daily maximum 10 m wind ≥ 8 m/s | [MERRA-2](https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/) | [NASA POWER](https://power.larc.nasa.gov) |
+| `barren_frac` | Share of the region that is open shrubland, grassland or barren | [MODIS MCD12Q1 v061 (500 m)](https://www.earthdata.nasa.gov/data/catalog/lpcloud-mcd12q1-061) | [AppEEARS](https://appeears.earthdatacloud.nasa.gov) |
+| hourly wind | Hourly 10 m wind speed and direction, every winter 2001–2025 | [MERRA-2](https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/) | [NASA POWER](https://power.larc.nasa.gov) |
 
 Other open data: tumbleweed sightings from **GBIF** and **iNaturalist**; land use, buildings and fences from **OpenStreetMap**; pile-up dates and places from news reports (links in `data/*/events.csv`).
 
@@ -107,7 +107,6 @@ scripts/    NASA data download and reduction (fetch.py)
 backend/    statistics (stats.py), hindcast (forecast.py), FastAPI server (main.py), static export
 geo/        seed sources and pile-up maps (build.py), hindcast maps (hindcast.py)
 frontend/   React + Vite + TypeScript website (Leaflet maps, Recharts charts)
-pitch/      slides and submission text
 ```
 
 ## Run it locally
@@ -144,6 +143,12 @@ The upload needs `SWA_CLI_DEPLOYMENT_TOKEN` in `.env`.
 | Maps (sources and pile-ups) | Raisa |
 | Website | Anesti |
 | Pitch | All team members |  
+
+## Built with
+
+**Python:** pandas, NumPy, xarray, SciPy, pyMannKendall, GeoPandas, OSMnx, Rasterio, FastAPI, pytest, tabpfn-client.
+**Web:** React, Vite, TypeScript, Leaflet / React Leaflet, Recharts.
+**Hosting:** Azure Static Web Apps.
 
 ## Credits
 

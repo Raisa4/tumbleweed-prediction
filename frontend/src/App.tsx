@@ -93,6 +93,15 @@ export default function App() {
             </select>
           </label>
         )}
+        {/* Link to the public source code, opens in a new tab. */}
+        <a
+          className="ghost"
+          href="https://github.com/Raisa4/tumbleweed-prediction"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Code on GitHub ↗
+        </a>
         <button
           className="ghost"
           onClick={() => {
