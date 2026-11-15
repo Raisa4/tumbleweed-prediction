@@ -7,3 +7,5 @@ data/raw/
 intrebari_despre_proiect
 # Exported API files (backend/export_static.py), regenerated before each deploy
 frontend/public/data/
+pitch/
+CLAUDE.md
